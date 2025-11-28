@@ -1,0 +1,29 @@
+# Python dependencies for AI Agent Demo project
+
+# Environment variable management
+python-dotenv>=1.0.0
+
+# HTTP requests for OpenRouter API
+requests>=2.31.0
+
+# OpenAI API client for embeddings and chat completions
+openai>=1.0.0
+
+# Numerical operations and vector calculations
+numpy>=1.24.0
+
+# Token counting and text chunking
+tiktoken>=0.5.0
+
+# PDF document processing
+PyPDF2>=3.0.0
+
+# Word document processing
+python-docx>=1.0.0
+
+# Excel file processing (.xlsx format)
+openpyxl>=3.1.0
+
+# Legacy Excel file processing (.xls format)
+xlrd>=2.0.0
+
