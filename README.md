@@ -64,13 +64,18 @@ AI_Agent_Demo_Codes/
 
 3. **Set up environment variables:**
    
-   Create a `.env` file in the project root directory with your API keys:
+   Copy the example environment file and fill in your API keys:
+   ```bash
+   cp env.example .env
    ```
-   OPENROUTER_API_KEY=your_openrouter_api_key_here
-   OPENAI_API_KEY=your_openai_api_key_here
+   
+   Then edit the `.env` file and replace the placeholder values with your actual API keys:
+   ```
+   OPENROUTER_API_KEY=your_actual_openrouter_api_key
+   OPENAI_API_KEY=your_actual_openai_api_key
    ```
 
-   **Important**: Never commit your `.env` file to version control. It should be in `.gitignore`.
+   **Important**: Never commit your `.env` file to version control. It is already included in `.gitignore`.
 
 ## Usage
 
