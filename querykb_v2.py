@@ -40,26 +40,44 @@ class RAG:
         vector_store (list): Loaded vector store with embeddings and metadata
     """
     
-    def __init__(self, vector_store_path=None):
+    def __init__(self, vector_store_path=None, api_provider: str = 'openrouter', api_key: str = None, embedding_model: str = "openai/text-embedding-3-small", chat_model: str = "google/gemini-2.5-flash"):
         """
         Initialize the native RAG query system.
         
         Args:
             vector_store_path (str): Path to the JSON file containing the vector store
-        
-        Note:
-            The vector store should have been previously created using VectorStore_v2.py.
-            If vector_store_path is provided, the vector store will be loaded automatically.
+            api_provider (str): The API provider, 'openai' or 'openrouter'.
+            api_key (str): API key for the provider. If None, it's loaded from .env.
+            embedding_model (str): The model for query embeddings.
+            chat_model (str): The model for generating answers.
         """
         # Load environment variables from .env file
         load_dotenv()
         
-        # Get OpenAI API key from environment variables
-        self.api_key = os.getenv("OPENAI_API_KEY")
-        
-        # Initialize OpenAI client for API calls
-        self.client = OpenAI(api_key=self.api_key)
-        
+        # Determine API key
+        if api_key is None:
+            if api_provider == 'openai':
+                api_key = os.getenv("OPENAI_API_KEY")
+            elif api_provider == 'openrouter':
+                api_key = os.getenv("OPENROUTER_API_KEY")
+
+        if not api_key:
+            raise ValueError(f"API key for {api_provider} not found. Please provide it or set it in your .env file.")
+
+        # Initialize API client based on provider
+        if api_provider == 'openai':
+            self.client = OpenAI(api_key=api_key)
+        elif api_provider == 'openrouter':
+            self.client = OpenAI(
+                base_url="https://openrouter.ai/api/v1",
+                api_key=api_key
+            )
+        else:
+            raise ValueError("Unsupported API provider. Choose 'openai' or 'openrouter'.")
+
+        self.embedding_model = embedding_model
+        self.chat_model = chat_model
+
         # Vector store data (loaded from JSON file)
         self.vector_store = None
         
@@ -143,7 +161,7 @@ class RAG:
 
         # Create embedding for the query using OpenAI API
         query_emb = self.client.embeddings.create(
-            model="text-embedding-3-small",
+            model=self.embedding_model,
             input=[query]
         ).data[0].embedding
 
@@ -208,7 +226,7 @@ class RAG:
 
         # Step 4: Generate response using OpenAI's chat completion API
         response = self.client.chat.completions.create(
-            model="gpt-4o-mini",  # Using GPT-4o-mini for optimal performance
+            model=self.chat_model,
             messages=[
                 {"role": "system", "content": prompt},
                 {"role": "user", "content": query}

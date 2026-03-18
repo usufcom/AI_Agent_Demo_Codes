@@ -21,6 +21,7 @@ Date: 2024
 """
 
 import os
+from dotenv import load_dotenv
 import json
 import numpy as np
 import tiktoken
@@ -46,28 +47,46 @@ class VectorStore:
         batch_size (int): Number of texts to process in each embedding batch
     """
     
-    def __init__(self, api_key: str, chunk_size: int = 1000, chunk_overlap: int = 200, batch_size: int = 16):
+    def __init__(self, api_provider: str = 'openrouter', api_key: str = None, embedding_model: str = "openai/text-embedding-3-small", chunk_size: int = 1000, chunk_overlap: int = 200, batch_size: int = 16):
         """
         Initialize the native vector store system.
         
         Args:
-            api_key (str): OpenAI API key for embeddings
+            api_provider (str): The API provider to use, 'openai' or 'openrouter' (default: 'openai').
+            api_key (str): API key for the provider. If None, it's loaded from .env.
+            embedding_model (str): The model to use for creating embeddings.
             chunk_size (int): Maximum tokens per text chunk (default: 1000)
             chunk_overlap (int): Token overlap between chunks (default: 200)
             batch_size (int): Number of texts to embed in each batch (default: 16)
-        
-        Note:
-            chunk_overlap should be less than chunk_size for meaningful chunks.
-            batch_size affects API call efficiency - larger batches are more efficient
-            but may hit rate limits with very large documents.
         """
-        # Initialize OpenAI client for API calls
-        self.client = OpenAI(api_key=api_key)
+        load_dotenv()
+
+        # Determine API key
+        if api_key is None:
+            if api_provider == 'openai':
+                api_key = os.getenv("OPENAI_API_KEY")
+            elif api_provider == 'openrouter':
+                api_key = os.getenv("OPENROUTER_API_KEY")
+
+        if not api_key:
+            raise ValueError(f"API key for {api_provider} not found. Please provide it or set it in your .env file.")
+
+        # Initialize API client based on provider
+        if api_provider == 'openai':
+            self.client = OpenAI(api_key=api_key)
+        elif api_provider == 'openrouter':
+            self.client = OpenAI(
+                base_url="https://openrouter.ai/api/v1",
+                api_key=api_key
+            )
+        else:
+            raise ValueError("Unsupported API provider. Choose 'openai' or 'openrouter'.")
         
         # Store chunking configuration
         self.chunk_size = chunk_size
         self.chunk_overlap = chunk_overlap
         self.batch_size = batch_size
+        self.embedding_model = embedding_model
 
     def load_documents(self, folder_path: str) -> List[Dict]:
         """
@@ -308,7 +327,7 @@ class VectorStore:
 
             # Create embeddings for the batch
             response = self.client.embeddings.create(
-                model="text-embedding-3-small",
+                model=self.embedding_model,
                 input=texts
             )
 
@@ -348,7 +367,7 @@ class VectorStore:
         except PermissionError:
             print(f"❌ Permission denied. Make sure {vector_store_path} is not open in another program.")
 
-    def exract_save_vector_store(self, store, kb_folder: str, vector_store_path: str):
+    def extract_save_vector_store(self, kb_folder: str, vector_store_path: str):
         """
         Complete pipeline to extract, process, and save a vector store.
         
@@ -359,7 +378,6 @@ class VectorStore:
         4. Save the complete vector store to disk
         
         Args:
-            store: Self-reference for method chaining
             kb_folder (str): Path to the knowledge base folder
             vector_store_path (str): Path where the vector store should be saved
         
@@ -374,10 +392,10 @@ class VectorStore:
         all_embeddings = []
         for doc in docs:  # Each doc is {"page_content": ..., "metadata": {...}}
             # Split document into chunks while preserving metadata
-            chunks = store.chunk_text(doc)
+            chunks = self.chunk_text(doc)
             
             # Create embeddings for the chunks
-            doc_embeddings = store.embed_chunks(chunks)
+            doc_embeddings = self.embed_chunks(chunks)
             
             # Add to the complete collection
             all_embeddings.extend(doc_embeddings)
