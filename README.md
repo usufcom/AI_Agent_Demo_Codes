@@ -455,7 +455,7 @@ If you encounter errors with function calling:
 
 **VectorStore_v2.py and querykb_v2.py:**
 
-- Author: Usuf Com
+- Author: Youssoufa M.
 - Contact: [usufcom20@gmail.com](mailto:usufcom20@gmail.com)
 - Website: [home.djamai.com](http://www.djamai.com)
 - LinkedIn: [https://www.linkedin.com/in/usufcom](https://www.linkedin.com/in/usufcom)
