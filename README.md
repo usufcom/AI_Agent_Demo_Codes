@@ -1,14 +1,100 @@
 # AI Agent Demo - Agentic AI and RAG Implementation
 
-This project demonstrates two key AI concepts through practical implementations:
+This project demonstrates **Agentic AI** and **RAG (Retrieval-Augmented Generation)** through two complementary Jupyter notebooks and supporting Python modules.
 
-1. **Agentic AI**: Direct interaction with Large Language Models (LLMs) via OpenRouter API
-2. **RAG (Retrieval-Augmented Generation)**: Enhanced AI responses using document knowledge bases
+Both notebooks cover the same three concepts — basic LLM interaction, tool use, and document Q&A — but use different approaches:
+
+| Notebook | Approach | Best for |
+|----------|----------|----------|
+| [`AI_Agent_test.ipynb`](AI_Agent_test.ipynb) | Native OpenRouter API + custom RAG classes | Learning HTTP/API fundamentals with minimal abstractions |
+| [`Ai_Agent_with_Langchain.ipynb`](Ai_Agent_with_Langchain.ipynb) | LangChain framework (`ChatOpenRouter`, LCEL, agents, FAISS) | Learning LangChain patterns and building on its ecosystem |
+
+---
+
+## Jupyter Notebooks
+
+### [`AI_Agent_test.ipynb`](AI_Agent_test.ipynb) — Native API Demo
+
+This notebook implements everything with **direct API calls** and **custom Python modules**. No LangChain dependency is required for this notebook's core flow.
+
+**Part 1: Basic AI Agent**
+- Sends HTTP requests to the OpenRouter chat completions endpoint using `requests`
+- Structures conversations with system and user messages
+- Demonstrates model selection, temperature, and token limits
+- Default model: `google/gemini-2.5-flash` (other free models listed in the notebook)
+
+**Part 2: Function Calling (Tool Use)**
+- Defines tools manually as OpenRouter-compatible JSON schemas
+- Implements a two-step tool loop: LLM decides → function runs → LLM responds
+- Includes four example tools: `calculate`, `get_current_time`, `text_uppercase`, `text_word_count`
+- Includes error handling for models with limited function-calling support
+
+**Part 3: RAG System**
+- Uses [`VectorStore_v2.py`](VectorStore_v2.py) to process documents and build a JSON vector store
+- Uses [`querykb_v2.py`](querykb_v2.py) for cosine similarity search and context-aware answers
+- Supports multiple file formats (PDF, DOCX, Excel, TXT, JSON)
+- Stores embeddings in `vectorstore/vector_store.json`
+
+**Workflow:**
+```
+User Query → OpenRouter API (requests) → LLM Response
+User Query → Tool schema → Execute Python function → Final response
+User Question → Embed query → Cosine search → querykb_v2.RAG → Answer
+```
+
+---
+
+### [`Ai_Agent_with_Langchain.ipynb`](Ai_Agent_with_Langchain.ipynb) — LangChain Tutorial (OpenRouter)
+
+This notebook mirrors the same three-part structure using **LangChain abstractions**, based on the [GeeksforGeeks LangChain intro](https://www.geeksforgeeks.org/artificial-intelligence/introduction-to-langchain/), adapted to use OpenRouter instead of Google Gemini.
+
+**Part 1: LangChain Basics**
+- Uses `ChatOpenRouter` from `langchain-openrouter` (reads `OPENROUTER_API_KEY` from `.env`)
+- Runs a simple prompt with `llm.invoke()`
+- Builds a reusable **Prompt Template** and **LCEL chain**: `prompt_template | llm | StrOutputParser()`
+
+**Part 2: LangChain Agent with Tools**
+- Wraps the same four tools with the `@tool` decorator (schemas generated automatically)
+- Uses `create_agent()` to handle the full tool-calling loop
+- Includes the same demo queries as `AI_Agent_test.ipynb` plus an interactive cell
+
+**Part 3: LangChain RAG**
+- Loads PDFs from `docs/` with `PyPDFLoader`
+- Splits text with `RecursiveCharacterTextSplitter` (500 tokens, 50 overlap)
+- Creates embeddings via OpenRouter using `OpenAIEmbeddings`
+- Stores vectors in a **FAISS** index at `vectorstore/langchain_faiss/`
+- Answers questions with an LCEL RAG chain (retriever → prompt → LLM)
+
+**Workflow:**
+```
+Prompt template → ChatOpenRouter → StrOutputParser
+User query → create_agent() → @tool functions → Final answer
+PDF docs → Split → Embed → FAISS → Retriever → RAG chain → Answer
+```
+
+---
+
+### Which notebook should I use?
+
+| Feature | `AI_Agent_test.ipynb` | `Ai_Agent_with_Langchain.ipynb` |
+|---------|------------------------|-----------------------------------|
+| LLM calls | Manual `requests.post` | `ChatOpenRouter.invoke()` |
+| Chains | Not applicable | LCEL pipe syntax |
+| Tool schemas | Hand-written JSON | Auto-generated from `@tool` |
+| Tool loop | Manual two-step API calls | `create_agent()` |
+| Vector store | Custom JSON + numpy | FAISS via LangChain |
+| RAG pipeline | `VectorStore_v2.py` + `querykb_v2.py` | LangChain loaders + LCEL chain |
+| Dependencies | Minimal (`requests`, `openai`, `numpy`) | LangChain ecosystem packages |
+| File formats (RAG) | PDF, DOCX, Excel, TXT, JSON | PDF (via `PyPDFLoader`) |
+
+**Recommendation:** Start with `AI_Agent_test.ipynb` to understand how APIs and RAG work under the hood, then move to `Ai_Agent_with_Langchain.ipynb` to see how LangChain simplifies the same patterns.
+
+---
 
 ## Features
 
 ### Part 1: Basic AI Agent
-- Direct API interaction with multiple free LLM models via OpenRouter
+- Direct API interaction with multiple LLM models via OpenRouter
 - Support for various free models (Grok, GPT-OSS, DeepSeek, Gemma, Qwen)
 - Configurable temperature and token limits
 - Simple conversation interface
@@ -20,38 +106,44 @@ This project demonstrates two key AI concepts through practical implementations:
 - Error handling for models with limited function calling support
 
 ### Part 3: RAG System
-- Document processing from multiple formats (PDF, DOCX, Excel, TXT, JSON)
+- Document processing and semantic search
 - Token-based text chunking with configurable overlap
-- Vector embeddings using OpenAI's embedding models
-- Cosine similarity search for document retrieval
+- Vector embeddings via OpenRouter or OpenAI
 - Context-aware question answering based on your documents
+
+---
 
 ## Project Structure
 
 ```
 AI_Agent_Demo_Codes/
-├── AI_Agent_test.ipynb          # Main Jupyter notebook with all demos
-├── VectorStore_v2.py            # Vector store creation and management
-├── querykb_v2.py                 # RAG query interface
-├── docs/                         # Documents folder for RAG knowledge base
-│   └── ETIIAC_2025_forRAG.pdf
-├── vectorstore/                  # Generated vector store storage
-│   └── vector_store.json
-├── requirements.txt              # Python dependencies
-└── README.md                     # This file
+├── AI_Agent_test.ipynb              # Native API demo (requests + custom RAG)
+├── Ai_Agent_with_Langchain.ipynb    # LangChain tutorial (OpenRouter)
+├── VectorStore_v2.py                # Native vector store creation and management
+├── querykb_v2.py                    # Native RAG query interface
+├── docs/                            # Documents folder for RAG knowledge base
+├── vectorstore/
+│   ├── vector_store.json            # Native JSON vector store (AI_Agent_test)
+│   └── langchain_faiss/             # FAISS index (Ai_Agent_with_Langchain)
+├── images/                          # Diagrams used in the LangChain notebook
+├── requirements.txt                 # Python dependencies
+├── env.example                      # Example environment variables
+└── README.md                        # This file
 ```
+
+---
 
 ## Prerequisites
 
 - Python 3.7 or higher
-- Jupyter Notebook (for running the demo notebook)
+- Jupyter Notebook (for running the demo notebooks)
 - API Keys:
-  - **OpenRouter API Key**: For accessing free LLM models
+  - **OpenRouter API Key** (required for both notebooks)
     - Sign up at [OpenRouter.ai](https://openrouter.ai/)
     - Get your API key from the dashboard
-  - **OpenAI API Key**: For embeddings and RAG system
-    - Sign up at [OpenAI](https://platform.openai.com/)
-    - Get your API key from the API keys section
+  - **OpenAI API Key** (optional — only needed if using OpenAI directly instead of OpenRouter for embeddings)
+
+---
 
 ## Installation
 
@@ -63,12 +155,12 @@ AI_Agent_Demo_Codes/
    ```
 
 3. **Set up environment variables:**
-   
+
    Copy the example environment file and fill in your API keys:
    ```bash
    cp env.example .env
    ```
-   
+
    Then edit the `.env` file and replace the placeholder values with your actual API keys:
    ```
    OPENROUTER_API_KEY=your_actual_openrouter_api_key
@@ -77,126 +169,142 @@ AI_Agent_Demo_Codes/
 
    **Important**: Never commit your `.env` file to version control. It is already included in `.gitignore`.
 
+---
+
 ## Usage
 
-### Running the Notebook
+### Running the Notebooks
 
 1. Start Jupyter Notebook:
    ```bash
    jupyter notebook
    ```
 
-2. Open `AI_Agent_test.ipynb`
+2. Open either notebook:
+   - **`AI_Agent_test.ipynb`** — native API approach
+   - **`Ai_Agent_with_Langchain.ipynb`** — LangChain approach
 
-3. Run cells sequentially to see each demo in action
+3. Run cells sequentially from top to bottom
 
-### Part 1: Basic AI Agent
+### Native notebook (`AI_Agent_test.ipynb`)
 
-The basic AI agent demonstrates simple conversation with LLMs:
+#### Part 1: Basic AI Agent
 
 ```python
-# Example from the notebook
-MODEL = "x-ai/grok-4.1-fast:free"
+MODEL = "google/gemini-2.5-flash"
 messages = [
     {"role": "system", "content": "You are a helpful assistant."},
-    {"role": "user", "content": "Tell me something about AI in Africa."}
+    {"role": "user", "content": "What is AI?"}
 ]
+# Sent via requests.post to OpenRouter
 ```
 
-**Available Free Models:**
-- `x-ai/grok-4.1-fast:free`
+**Available free models (examples):**
 - `openai/gpt-oss-20b:free`
 - `tngtech/deepseek-r1t2-chimera:free`
 - `google/gemma-3-27b-it:free`
 - `qwen/qwen3-coder:free`
 
-### Part 2: Function Calling
+#### Part 2: Function Calling
 
-The function calling demo shows how AI agents can use external tools:
-
-**Available Functions:**
+**Available functions:**
 - `calculate(expression)`: Performs mathematical calculations
 - `get_current_time()`: Returns current date and time
 - `text_uppercase(text)`: Converts text to uppercase
 - `text_word_count(text)`: Counts words in text
 
-The AI automatically decides when to use these functions based on the user's query.
+#### Part 3: RAG System
 
-### Part 3: RAG System
-
-#### Step 1: Create Vector Store
-
-Before querying documents, you need to create a vector store:
+**Step 1 — Create vector store:**
 
 ```python
 from VectorStore_v2 import VectorStore
-import os
-from dotenv import load_dotenv
 
-load_dotenv()
-
-# Initialize Vector Store
 store = VectorStore(
-    api_key=os.getenv("OPENAI_API_KEY"),
+    api_provider='openrouter',
+    embedding_model='openai/text-embedding-3-small',
     chunk_size=500,
     chunk_overlap=50
 )
-
-# Create and save vector store
-kb_folder = "docs"
-vector_store_path = "vectorstore/vector_store.json"
-store.exract_save_vector_store(store, kb_folder, vector_store_path)
+store.extract_save_vector_store("docs", "vectorstore/vector_store.json")
 ```
 
-#### Step 2: Query the Knowledge Base
-
-Once the vector store is created, you can query it:
+**Step 2 — Query the knowledge base:**
 
 ```python
 from querykb_v2 import RAG
-import textwrap
 
-# Initialize RAG system
-rag = RAG(vector_store_path="vectorstore/vector_store.json")
+rag = RAG(
+    vector_store_path="vectorstore/vector_store.json",
+    api_provider='openrouter',
+    embedding_model='openai/text-embedding-3-small',
+    chat_model='google/gemini-2.5-flash'
+)
 
-# Ask questions
-system_prompt = "You are a helpful assistant"
-user_msg = "What is this document about?"
-
-answer, used_context = rag.askAI(user_msg, system_prompt, k=3)
-
-print(f"Reply: {textwrap.fill(answer, width=80)}")
+answer, used_context = rag.askAI("Your question here", "You are a helpful assistant")
 ```
 
-**Parameters:**
-- `k`: Number of document chunks to retrieve (default: 5, shown example uses 3)
-- `chunk_size`: Maximum tokens per chunk (default: 500)
-- `chunk_overlap`: Token overlap between chunks (default: 50)
+### LangChain notebook (`Ai_Agent_with_Langchain.ipynb`)
+
+#### Part 1: LCEL chain
+
+```python
+from langchain_openrouter import ChatOpenRouter
+from langchain_core.prompts import PromptTemplate
+from langchain_core.output_parsers import StrOutputParser
+
+llm = ChatOpenRouter(model="google/gemini-2.5-flash", temperature=0.7)
+prompt_template = PromptTemplate.from_template(
+    "Give me 3 career skills that are in high demand in {year}."
+)
+chain = prompt_template | llm | StrOutputParser()
+response = chain.invoke({"year": "2026"})
+```
+
+#### Part 2: Agent with tools
+
+```python
+from langchain_core.tools import tool
+from langchain.agents import create_agent
+
+agent = create_agent(model=llm, tools=[calculate, get_current_time, ...])
+result = agent.invoke({"messages": [{"role": "user", "content": "What time is it?"}]})
+```
+
+#### Part 3: LangChain RAG
+
+Build the FAISS index from PDFs in `docs/`, then query with the RAG LCEL chain. The index is saved to `vectorstore/langchain_faiss/` and can be reloaded on subsequent runs.
+
+---
 
 ## Supported File Formats for RAG
 
-The RAG system supports the following document formats:
+| Format | Native (`VectorStore_v2.py`) | LangChain notebook |
+|--------|------------------------------|--------------------|
+| PDF (`.pdf`) | Yes | Yes |
+| Word (`.docx`) | Yes | No (PDF only in notebook) |
+| Excel (`.xlsx`, `.xls`) | Yes | No |
+| Text (`.txt`) | Yes | No |
+| JSON (`.json`) | Yes | No |
 
-- **PDF** (`.pdf`): Extracts text from each page with page numbers
-- **Word Documents** (`.docx`): Extracts paragraphs and tables separately
-- **Excel Files** (`.xlsx`, `.xls`): Converts each sheet to text with sheet information
-- **Text Files** (`.txt`): Direct text extraction
-- **JSON Files** (`.json`): Converts to string representation
+Place your documents in the `docs/` folder before building a vector store.
 
-Place your documents in the `docs/` folder before creating the vector store.
+---
 
 ## Configuration
 
 ### Vector Store Parameters
 
-- **chunk_size**: Maximum number of tokens per chunk (default: 1000 in code, 500 in notebook)
-- **chunk_overlap**: Number of tokens to overlap between chunks (default: 200 in code, 50 in notebook)
-- **batch_size**: Number of texts to process in each embedding batch (default: 16)
+- **chunk_size**: Maximum number of tokens per chunk (default: 1000 in code, 500 in notebooks)
+- **chunk_overlap**: Number of tokens to overlap between chunks (default: 200 in code, 50 in notebooks)
+- **batch_size**: Number of texts to process in each embedding batch (default: 16, native only)
 
 ### Model Parameters
 
 - **temperature**: Controls randomness (0.2 = more focused, 1.0 = more creative)
 - **max_tokens**: Maximum length of the response (default: 4096)
+
+---
 
 ## How It Works
 
@@ -207,16 +315,18 @@ User Query → OpenRouter API → LLM Model → Response
 
 ### Function Calling
 ```
-User Query → LLM Decides Function → Execute Function → 
+User Query → LLM Decides Function → Execute Function →
 Return Result → LLM Generates Final Response
 ```
 
 ### RAG System
 ```
-User Question → Embed Query → Similarity Search → 
-Retrieve Top-k Chunks → Combine with Question → 
+User Question → Embed Query → Similarity Search →
+Retrieve Top-k Chunks → Combine with Question →
 Send to LLM → Context-Aware Answer
 ```
+
+---
 
 ## Key Differences: Basic AI vs RAG
 
@@ -228,23 +338,31 @@ Send to LLM → Context-Aware Answer
 | Context Window | Limited | Can handle large docs |
 | Use Case | General Q&A | Domain-specific Q&A |
 
+---
+
 ## Troubleshooting
 
 ### Function Calling Errors
 If you encounter errors with function calling:
 - Some free models have limited or no function calling support
-- Try switching to a different model (e.g., `openai/gpt-oss-20b:free`)
+- Try switching to a different model (e.g., `google/gemini-2.5-flash` or `openai/gpt-oss-20b:free`)
 - Check the error message for specific guidance
 
 ### Vector Store Creation Issues
-- Ensure your OpenAI API key is valid and has sufficient credits
+- Ensure your OpenRouter (or OpenAI) API key is valid
 - Check that documents in the `docs/` folder are readable
-- Verify file formats are supported
+- Verify file formats are supported for the notebook you are using
+
+### LangChain Import Errors
+- Run `pip install -r requirements.txt` to install all LangChain packages
+- The LangChain notebook also includes an install cell you can uncomment and run
 
 ### API Key Issues
 - Ensure your `.env` file is in the project root
 - Check that variable names match exactly: `OPENROUTER_API_KEY` and `OPENAI_API_KEY`
 - Verify API keys are valid and not expired
+
+---
 
 ## Author Information
 
@@ -254,24 +372,30 @@ If you encounter errors with function calling:
 - Website: www.djamai.com
 - LinkedIn: https://www.linkedin.com/in/usufcom
 
+---
+
 ## License
 
 Copyright (c) Clemios SARL
 
+---
+
 ## Additional Notes
 
-- The RAG implementation is a native solution without external dependencies like Langchain
-- Vector stores are saved as JSON files for easy inspection and portability
-- The system uses cosine similarity for document retrieval
-- Embeddings are created using OpenAI's `text-embedding-3-small` model
-- Chat completions use `gpt-4o-mini` for optimal performance and cost
+- **`AI_Agent_test.ipynb`** uses a native RAG implementation (`VectorStore_v2.py`, `querykb_v2.py`) without LangChain
+- **`Ai_Agent_with_Langchain.ipynb`** uses LangChain's FAISS vector store and LCEL chains — a separate index from the native JSON store
+- Both notebooks can use the same `docs/` folder, but each builds its own vector store format
+- Embeddings default to `openai/text-embedding-3-small` via OpenRouter
+- Chat completions default to `google/gemini-2.5-flash` via OpenRouter
+
+---
 
 ## Next Steps
 
-- Try different questions with the RAG system
+- Run both notebooks side by side and compare the native vs LangChain approaches
+- Try different questions with the RAG systems
 - Experiment with different chunk sizes and overlap values
 - Adjust the `k` parameter (number of chunks retrieved)
 - Try different free LLM models for comparison
 - Add your own documents to the `docs/` folder
-- Create custom functions for the function calling demo
-
+- Create custom functions for the function calling demos
