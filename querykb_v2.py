@@ -24,6 +24,7 @@ import json
 from dotenv import load_dotenv
 import numpy as np
 from openai import OpenAI
+import requests
 
 
 class RAG:
@@ -65,20 +66,18 @@ class RAG:
             raise ValueError(f"API key for {api_provider} not found. Please provide it or set it in your .env file.")
 
         # Initialize API client based on provider
+        self.api_provider = api_provider
+        self.api_key = api_key
+
         if api_provider == 'openai':
             self.client = OpenAI(api_key=api_key)
         elif api_provider == 'openrouter':
-            self.client = OpenAI(
-                base_url="https://openrouter.ai/api/v1",
-                api_key=api_key
-            )
+            self.client = OpenAI(api_key=api_key, base_url="https://openrouter.ai/api/v1")
         else:
             raise ValueError("Unsupported API provider. Choose 'openai' or 'openrouter'.")
 
         self.embedding_model = embedding_model
         self.chat_model = chat_model
-
-        # Vector store data (loaded from JSON file)
         self.vector_store = None
         
         # Load vector store if path is provided
@@ -106,6 +105,32 @@ class RAG:
         with open(vector_store_path, 'r', encoding="utf-8") as f:
             vector_store = json.load(f)
         return vector_store
+
+    def _create_embedding(self, text):
+        """
+        Create an embedding for text using the configured provider.
+        """
+        if self.api_provider == 'openrouter':
+            response = requests.post(
+                "https://openrouter.ai/api/v1/embeddings",
+                headers={
+                    "Authorization": f"Bearer {self.api_key}",
+                    "Content-Type": "application/json",
+                    "Referer": "https://home.djamai.com",
+                    "X-OpenRouter-Title": "DjamAI Stage"
+                },
+                json={
+                    "model": self.embedding_model,
+                    "input": [text]
+                }
+            )
+            response.raise_for_status()
+            return response.json()["data"][0]["embedding"]
+
+        return self.client.embeddings.create(
+            model=self.embedding_model,
+            input=[text]
+        ).data[0].embedding
 
     @staticmethod
     def cosine_similarity(a, b):
@@ -159,11 +184,7 @@ class RAG:
         if not self.vector_store:
             raise ValueError("❌ Vectorstore not loaded.")
 
-        # Create embedding for the query using OpenAI API
-        query_emb = self.client.embeddings.create(
-            model=self.embedding_model,
-            input=[query]
-        ).data[0].embedding
+        query_emb = self._create_embedding(query)
 
         # Compute similarity scores for all documents
         similarities = []
@@ -224,14 +245,35 @@ class RAG:
             f"Here are the documents (knowledgebase) you need:\n\n{context}\n\n"
         )
 
-        # Step 4: Generate response using OpenAI's chat completion API
-        response = self.client.chat.completions.create(
-            model=self.chat_model,
-            messages=[
-                {"role": "system", "content": prompt},
-                {"role": "user", "content": query}
-            ]
-        )
-        
-        # Return the AI response and the context used for transparency
-        return response.choices[0].message.content.strip(), context
+        messages = [
+            {"role": "system", "content": prompt},
+            {"role": "user", "content": query}
+        ]
+
+        if self.api_provider == 'openrouter':
+            response = requests.post(
+                "https://openrouter.ai/api/v1/chat/completions",
+                headers={
+                    "Authorization": f"Bearer {self.api_key}",
+                    "Content-Type": "application/json",
+                    "Referer": "https://home.djamai.com",  # Your site URL
+                    "X-OpenRouter-Title": "DjamAI Stage"   # Your App Name
+                },
+                json={
+                    "model": self.chat_model,
+                    "messages": messages,
+                    "temperature": 0.2,
+                    "max_tokens": 4096
+                }
+            )
+            response.raise_for_status()
+            response_data = response.json()
+            ai_text = response_data["choices"][0]["message"]["content"].strip()
+        else:
+            response = self.client.chat.completions.create(
+                model=self.chat_model,
+                messages=messages
+            )
+            ai_text = response.choices[0].message.content.strip()
+
+        return ai_text, context
